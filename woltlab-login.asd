@@ -13,6 +13,12 @@
   :components ((:file "woltlab-login"))
   :in-order-to ((test-op (test-op #:woltlab-login/tests))))
 
+(asdf:defsystem #:woltlab-login/test-db
+  :description "Test database utilities for woltlab-login"
+  :depends-on (#:woltlab-login)
+  :pathname "t"
+  :components ((:file "test-db")))
+
 (asdf:defsystem #:woltlab-login/tests
   :depends-on (#:woltlab-login)
   :pathname "t"
