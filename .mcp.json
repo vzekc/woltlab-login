@@ -1,0 +1,10 @@
+{
+    "mcpServers": {
+        "lisp-mcp": {
+            "command": "/Users/hans/Development/privat/lisp-mcp/lisp-mcp.sh",
+            "env": {
+                "SWANK_PORT": "4005"
+            }
+        }
+    }
+}
