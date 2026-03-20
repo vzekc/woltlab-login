@@ -22,7 +22,7 @@ Tests are pure unit tests requiring no database connection.
 
 ## Architecture
 
-All code lives in `src/woltlab-login.lisp` with a single package `woltlab-login`.
+All code lives in `src/woltlab-login.lisp` with a single package `woltlab-login`. The only public API is `authenticate-user`, which connects to the database, authenticates, and disconnects on each call.
 
 **Password verification** supports three WoltLab hash formats:
 - `Bcrypt:$2y$...` — newer WoltLab, single bcrypt

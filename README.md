@@ -15,43 +15,29 @@ Install via Quicklisp or ensure these systems are available to ASDF.
 
 ```lisp
 (ql:quickload :woltlab-login)
-
-(woltlab-login:connect :host "127.0.0.1"
-                       :port 3306
-                       :database "forum"
-                       :user "dbuser"
-                       :password "dbpass")
 ```
 
 On macOS with Homebrew, the library automatically adds `/opt/homebrew/opt/mysql-client/lib/` to the CFFI search path.
 
 ## API
 
-### connect
-
-```lisp
-(connect &key host (port 3306) database user password) => connection
-```
-
-Connects to the WoltLab MySQL database and stores the connection in `*connection*`.
-
-### disconnect
-
-```lisp
-(disconnect &optional connection) => nil
-```
-
-Closes the database connection. Defaults to `*connection*`.
-
 ### authenticate-user
 
 ```lisp
-(authenticate-user username-or-email password &optional connection) => plist or nil
+(authenticate-user username-or-email password
+                   &key host (port 3306) database user db-password)
+  => plist or nil
 ```
 
-Authenticates a user by username or email address. Returns a plist on success:
+Authenticates a user by username or email address. Connects to the database, performs authentication, and disconnects. Returns a plist on success:
 
 ```lisp
+(woltlab-login:authenticate-user "hans@example.com" "secret"
+                                 :host "127.0.0.1"
+                                 :database "forum"
+                                 :user "dbuser"
+                                 :db-password "dbpass")
+;; =>
 (:user-id 4731
  :username "hans"
  :email "hans@example.com"
@@ -61,14 +47,6 @@ Authenticates a user by username or email address. Returns a plist on success:
 ```
 
 Returns `NIL` on authentication failure (unknown user or wrong password).
-
-### user-groups
-
-```lisp
-(user-groups user-id &optional connection) => list
-```
-
-Returns group memberships for the given user ID. WoltLab language keys (e.g. `wcf.acp.group.group1`) are resolved to their translated names.
 
 ### \*log-stream\*, \*log-level\*
 

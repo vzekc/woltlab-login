@@ -2,10 +2,7 @@
 
 (defpackage #:woltlab-login
   (:use #:cl)
-  (:export #:connect
-           #:disconnect
-           #:authenticate-user
-           #:user-groups
+  (:export #:authenticate-user
            #:*log-stream*
            #:*log-level*))
 
@@ -183,24 +180,18 @@ and bare $2a$ hashes (legacy double bcrypt)."
 
 ;;; Database connection
 
-(defvar *connection* nil
-  "Current MySQL database connection.")
-
 (defun connect (&key host (port 3306) database user password)
   "Connect to the WoltLab MySQL database."
-  (setf *connection* (cl-mysql:connect :host host
-                                       :port port
-                                       :database database
-                                       :user user
-                                       :password password))
-  *connection*)
+  (cl-mysql:connect :host host
+                    :port port
+                    :database database
+                    :user user
+                    :password password))
 
-(defun disconnect (&optional (connection *connection*))
+(defun disconnect (connection)
   "Disconnect from the database."
   (when connection
-    (cl-mysql:disconnect connection)
-    (when (eq connection *connection*)
-      (setf *connection* nil))))
+    (cl-mysql:disconnect connection)))
 
 ;;; User authentication
 
@@ -232,26 +223,32 @@ and bare $2a$ hashes (legacy double bcrypt)."
          (format nil "SELECT userID, username, email, password FROM wcf3_user WHERE email = '~A'" escaped)
          connection))))
 
-(defun authenticate-user (username-or-email password &optional (connection *connection*))
+(defun authenticate-user (username-or-email password
+                          &key host (port 3306) database user db-password)
   "Authenticate a user against the WoltLab database.
+Connects to the database, performs authentication, and disconnects.
 Returns a plist (:user-id ... :username ... :email ... :groups ...) on success, NIL on failure."
-  (let ((row (query-user username-or-email connection)))
-    (unless row
-      (log-message :warn "Authentication failed: user not found: ~A" username-or-email)
-      (return-from authenticate-user nil))
-    (destructuring-bind (user-id username email stored-hash) row
-      (unless (verify-woltlab-password password stored-hash)
-        (log-message :warn "Authentication failed: invalid password for user ~A" username)
-        (return-from authenticate-user nil))
-      (log-message :info "Authentication successful for user ~A (ID ~D)" username user-id)
-      (list :user-id user-id
-            :username username
-            :email email
-            :groups (user-groups user-id connection)))))
+  (let ((connection (connect :host host :port port :database database
+                             :user user :password db-password)))
+    (unwind-protect
+         (let ((row (query-user username-or-email connection)))
+           (unless row
+             (log-message :warn "Authentication failed: user not found: ~A" username-or-email)
+             (return-from authenticate-user nil))
+           (destructuring-bind (user-id username email stored-hash) row
+             (unless (verify-woltlab-password password stored-hash)
+               (log-message :warn "Authentication failed: invalid password for user ~A" username)
+               (return-from authenticate-user nil))
+             (log-message :info "Authentication successful for user ~A (ID ~D)" username user-id)
+             (list :user-id user-id
+                   :username username
+                   :email email
+                   :groups (user-groups user-id connection))))
+      (disconnect connection))))
 
 ;;; Group memberships
 
-(defun user-groups (user-id &optional (connection *connection*))
+(defun user-groups (user-id connection)
   "Fetch group memberships for a user.
 Returns a list of plists ((:group-id ... :group-name ...) ...).
 Resolves WoltLab language keys (e.g. wcf.acp.group.group1) to their translated names."
