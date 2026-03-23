@@ -32,11 +32,15 @@
       (force-output *log-stream*))))
 
 ;;; Ensure cl-mysql can find libmysqlclient on macOS (Homebrew keg-only)
+;;; and fall back to libmariadb on Linux (Debian/Ubuntu)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (let ((brew-lib (merge-pathnames "lib/" "/opt/homebrew/opt/mysql-client/")))
     (when (probe-file brew-lib)
-      (pushnew brew-lib cffi:*foreign-library-directories* :test #'equal))))
+      (pushnew brew-lib cffi:*foreign-library-directories* :test #'equal)))
+  (cffi:define-foreign-library libmysqlclient
+    (:unix (:or "libmysqlclient_r" "libmysqlclient" "libmariadb"))
+    (t (:default "libmysqlclient"))))
 
 ;;; Bcrypt modified base64 encoding/decoding
 ;;;
