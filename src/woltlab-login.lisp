@@ -4,32 +4,42 @@
   (:use #:cl)
   (:export #:authenticate-user
            #:*log-stream*
-           #:*log-level*))
+           #:*log-level*
+           #:*log-function*))
 
 (in-package #:woltlab-login)
 
 ;;; Logging
 
 (defvar *log-stream* *error-output*
-  "Stream for log output.")
+  "Stream for log output. Used by the default log function.")
 
 (defvar *log-level* :info
   "Minimum log level to output. One of :debug, :info, :warn, :error.")
+
+(defvar *log-function* nil
+  "When non-nil, a function of (level fmt &rest args) called instead of
+the built-in logger. This allows the host application to integrate
+woltlab-login logging into its own logging facility.")
 
 (defparameter *log-level-priority*
   '(:debug 0 :info 1 :warn 2 :error 3))
 
 (defun log-message (level fmt &rest args)
-  "Write a timestamped log message if LEVEL meets the current *log-level* threshold."
-  (when (>= (getf *log-level-priority* level 0)
-            (getf *log-level-priority* *log-level* 0))
-    (multiple-value-bind (sec min hour day month year)
-        (decode-universal-time (get-universal-time))
-      (format *log-stream* "~4,'0D-~2,'0D-~2,'0D ~2,'0D:~2,'0D:~2,'0D [~A] ~?~%"
-              year month day hour min sec
-              (string-upcase (symbol-name level))
-              fmt args)
-      (force-output *log-stream*))))
+  "Write a log message. When *log-function* is set, delegates to it.
+Otherwise writes a timestamped message to *log-stream*."
+  (cond (*log-function*
+         (apply *log-function* level fmt args))
+        (t
+         (when (>= (getf *log-level-priority* level 0)
+                   (getf *log-level-priority* *log-level* 0))
+           (multiple-value-bind (sec min hour day month year)
+               (decode-universal-time (get-universal-time))
+             (format *log-stream* "~4,'0D-~2,'0D-~2,'0D ~2,'0D:~2,'0D:~2,'0D [~A] ~?~%"
+                     year month day hour min sec
+                     (string-upcase (symbol-name level))
+                     fmt args)
+             (force-output *log-stream*))))))
 
 ;;; Ensure cl-mysql can find libmysqlclient on macOS (Homebrew keg-only)
 ;;; and fall back to libmariadb on Linux (Debian/Ubuntu)
