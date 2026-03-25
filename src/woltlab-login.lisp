@@ -3,6 +3,8 @@
 (defpackage #:woltlab-login
   (:use #:cl)
   (:export #:authenticate-user
+           #:lookup-user-email
+           #:lookup-user
            #:*log-stream*
            #:*log-level*
            #:*log-function*))
@@ -258,6 +260,41 @@ Returns a plist (:user-id ... :username ... :email ... :groups ...) on success, 
                    :username username
                    :email email
                    :groups (user-groups user-id connection))))
+      (disconnect connection))))
+
+(defun lookup-user-email (username-or-email
+                          &key host (port 3306) database user db-password)
+  "Look up a user's email by username without authentication.
+Connects to the database, queries, and disconnects.
+Returns the email string on success, NIL if not found."
+  (let ((connection (connect :host host :port port :database database
+                             :user user :password db-password)))
+    (unwind-protect
+         (let ((row (query-user username-or-email connection)))
+           (when row
+             (destructuring-bind (user-id username email stored-hash) row
+               (declare (ignore user-id stored-hash))
+               (log-message :info "Email lookup for ~A: found" username)
+               email)))
+      (disconnect connection))))
+
+(defun lookup-user (username-or-email
+                    &key host (port 3306) database user db-password)
+  "Look up user data by username without authentication.
+Connects to the database, queries, and disconnects.
+Returns a plist (:user-id ... :username ... :email ... :groups ...) or NIL."
+  (let ((connection (connect :host host :port port :database database
+                             :user user :password db-password)))
+    (unwind-protect
+         (let ((row (query-user username-or-email connection)))
+           (when row
+             (destructuring-bind (user-id username email stored-hash) row
+               (declare (ignore stored-hash))
+               (log-message :info "User lookup for ~A (ID ~D)" username user-id)
+               (list :user-id user-id
+                     :username username
+                     :email email
+                     :groups (user-groups user-id connection)))))
       (disconnect connection))))
 
 ;;; Group memberships
